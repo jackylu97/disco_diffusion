@@ -72,13 +72,14 @@ from torch.nn import functional as F
 import torchvision.transforms as T
 import torchvision.transforms.functional as TF
 # from tqdm.notebook import tqdm
+from tqdm import tqdm
 import clip
 from resize_right import resize 
 # from models import SLIP_VITB16, SLIP, SLIP_VITL16
 from guided_diffusion.script_util import create_model_and_diffusion, model_and_diffusion_defaults
 from datetime import datetime
 import numpy as np
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 import random
 import hashlib
 
@@ -414,13 +415,13 @@ def do_run():
       if stop_on_next_loop:
         break
       
-      display.clear_output(wait=True)
+    #   display.clear_output(wait=True)
 
       # Print Frame progress if animation mode is on
-      if args.animation_mode != "None":
-        batchBar = tqdm(range(args.max_frames), desc ="Frames")
-        batchBar.n = frame_num
-        batchBar.refresh()
+    #   if args.animation_mode != "None":
+    #     batchBar = tqdm(range(args.max_frames), desc ="Frames")
+    #     batchBar.n = frame_num
+    #     batchBar.refresh()
 
       
       # Inits if not video frames
@@ -471,11 +472,11 @@ def do_run():
           init_scale = args.frames_scale
           skip_steps = args.calc_frames_skip_steps
 
-      if  args.animation_mode == "Video Input":
-        seed = seed + 1  
-        init_image = f'{videoFramesFolder}/{frame_num+1:04}.jpg'
-        init_scale = args.frames_scale
-        skip_steps = args.calc_frames_skip_steps
+    #   if  args.animation_mode == "Video Input":
+    #     seed = seed + 1  
+    #     init_image = f'{videoFramesFolder}/{frame_num+1:04}.jpg'
+    #     init_scale = args.frames_scale
+    #     skip_steps = args.calc_frames_skip_steps
 
       loss_values = []
   
@@ -636,117 +637,117 @@ def do_run():
           sample_fn = diffusion.p_sample_loop_progressive
     
 
-      image_display = Output()
+    #   image_display = Output()
       for i in range(args.n_batches):
-          if args.animation_mode == 'None':
-            display.clear_output(wait=True)
-            batchBar = tqdm(range(args.n_batches), desc ="Batches")
-            batchBar.n = i
-            batchBar.refresh()
-          print('')
-          display.display(image_display)
-          gc.collect()
-          torch.cuda.empty_cache()
-          cur_t = diffusion.num_timesteps - skip_steps - 1
-          total_steps = cur_t
+            if args.animation_mode == 'None':
+                # display.clear_output(wait=True)
+                batchBar = tqdm(range(args.n_batches), desc ="Batches")
+                batchBar.n = i
+                batchBar.refresh()
+            print('')
+            # display.display(image_display)
+            gc.collect()
+            torch.cuda.empty_cache()
+            cur_t = diffusion.num_timesteps - skip_steps - 1
+            total_steps = cur_t
 
-          if perlin_init:
-              init = regen_perlin()
+            if perlin_init:
+                init = regen_perlin()
 
-          if model_config['timestep_respacing'].startswith('ddim'):
-              samples = sample_fn(
-                  model,
-                  (batch_size, 3, args.side_y, args.side_x),
-                  clip_denoised=clip_denoised,
-                  model_kwargs={},
-                  cond_fn=cond_fn,
-                  progress=True,
-                  skip_timesteps=skip_steps,
-                  init_image=init,
-                  randomize_class=randomize_class,
-                  eta=eta,
-              )
-          else:
-              samples = sample_fn(
-                  model,
-                  (batch_size, 3, args.side_y, args.side_x),
-                  clip_denoised=clip_denoised,
-                  model_kwargs={},
-                  cond_fn=cond_fn,
-                  progress=True,
-                  skip_timesteps=skip_steps,
-                  init_image=init,
-                  randomize_class=randomize_class,
-              )
+            if model_config['timestep_respacing'].startswith('ddim'):
+                samples = sample_fn(
+                    model,
+                    (batch_size, 3, args.side_y, args.side_x),
+                    clip_denoised=clip_denoised,
+                    model_kwargs={},
+                    cond_fn=cond_fn,
+                    progress=True,
+                    skip_timesteps=skip_steps,
+                    init_image=init,
+                    randomize_class=randomize_class,
+                    eta=eta,
+                )
+            else:
+                samples = sample_fn(
+                    model,
+                    (batch_size, 3, args.side_y, args.side_x),
+                    clip_denoised=clip_denoised,
+                    model_kwargs={},
+                    cond_fn=cond_fn,
+                    progress=True,
+                    skip_timesteps=skip_steps,
+                    init_image=init,
+                    randomize_class=randomize_class,
+                )
           
           
           # with run_display:
           # display.clear_output(wait=True)
-          imgToSharpen = None
-          for j, sample in enumerate(samples):    
-            cur_t -= 1
-            intermediateStep = False
-            if args.steps_per_checkpoint is not None:
-                if j % steps_per_checkpoint == 0 and j > 0:
-                  intermediateStep = True
-            elif j in args.intermediate_saves:
-              intermediateStep = True
-            with image_display:
-              if j % args.display_rate == 0 or cur_t == -1 or intermediateStep == True:
-                  for k, image in enumerate(sample['pred_xstart']):
-                      # tqdm.write(f'Batch {i}, step {j}, output {k}:')
-                      current_time = datetime.now().strftime('%y%m%d-%H%M%S_%f')
-                      percent = math.ceil(j/total_steps*100)
-                      if args.n_batches > 0:
-                        #if intermediates are saved to the subfolder, don't append a step or percentage to the name
-                        if cur_t == -1 and args.intermediates_in_subfolder is True:
-                          save_num = f'{frame_num:04}' if animation_mode != "None" else i
-                          filename = f'{args.batch_name}({args.batchNum})_{save_num}.png'
+            imgToSharpen = None
+            for j, sample in enumerate(samples):    
+                cur_t -= 1
+                intermediateStep = False
+                if args.steps_per_checkpoint is not None:
+                    if j % steps_per_checkpoint == 0 and j > 0:
+                        intermediateStep = True
+                elif j in args.intermediate_saves:
+                    intermediateStep = True
+                # with image_display:
+                if j % args.display_rate == 0 or cur_t == -1 or intermediateStep == True:
+                    for k, image in enumerate(sample['pred_xstart']):
+                        # tqdm.write(f'Batch {i}, step {j}, output {k}:')
+                        current_time = datetime.now().strftime('%y%m%d-%H%M%S_%f')
+                        percent = math.ceil(j/total_steps*100)
+                        if args.n_batches > 0:
+                            #if intermediates are saved to the subfolder, don't append a step or percentage to the name
+                            if cur_t == -1 and args.intermediates_in_subfolder is True:
+                                save_num = f'{frame_num:04}' if animation_mode != "None" else i
+                                filename = f'{args.batch_name}({args.batchNum})_{save_num}.png'
+                            else:
+                                #If we're working with percentages, append it
+                                if args.steps_per_checkpoint is not None:
+                                    filename = f'{args.batch_name}({args.batchNum})_{i:04}-{percent:02}%.png'
+                                # Or else, iIf we're working with specific steps, append those
+                                else:
+                                    filename = f'{args.batch_name}({args.batchNum})_{i:04}-{j:03}.png'
+                        image = TF.to_pil_image(image.add(1).div(2).clamp(0, 1))
+                        if j % args.display_rate == 0 or cur_t == -1:
+                            image.save('progress.png')
+                            # display.clear_output(wait=True)
+                            # display.display(display.Image('progress.png'))
+                        if args.steps_per_checkpoint is not None:
+                            if j % args.steps_per_checkpoint == 0 and j > 0:
+                                if args.intermediates_in_subfolder is True:
+                                    image.save(f'{partialFolder}/{filename}')
+                                else:
+                                    image.save(f'{batchFolder}/{filename}')
                         else:
-                          #If we're working with percentages, append it
-                          if args.steps_per_checkpoint is not None:
-                            filename = f'{args.batch_name}({args.batchNum})_{i:04}-{percent:02}%.png'
-                          # Or else, iIf we're working with specific steps, append those
-                          else:
-                            filename = f'{args.batch_name}({args.batchNum})_{i:04}-{j:03}.png'
-                      image = TF.to_pil_image(image.add(1).div(2).clamp(0, 1))
-                      if j % args.display_rate == 0 or cur_t == -1:
-                        image.save('progress.png')
-                        display.clear_output(wait=True)
-                        display.display(display.Image('progress.png'))
-                      if args.steps_per_checkpoint is not None:
-                        if j % args.steps_per_checkpoint == 0 and j > 0:
-                          if args.intermediates_in_subfolder is True:
-                            image.save(f'{partialFolder}/{filename}')
-                          else:
-                            image.save(f'{batchFolder}/{filename}')
-                      else:
-                        if j in args.intermediate_saves:
-                          if args.intermediates_in_subfolder is True:
-                            image.save(f'{partialFolder}/{filename}')
-                          else:
-                            image.save(f'{batchFolder}/{filename}')
-                      if cur_t == -1:
-                        if frame_num == 0:
-                          save_settings()
-                        if args.animation_mode != "None":
-                          image.save('prevFrame.png')
-                        if args.sharpen_preset != "Off" and animation_mode == "None":
-                          imgToSharpen = image
-                          if args.keep_unsharp is True:
-                            image.save(f'{unsharpenFolder}/{filename}')
-                        else:
-                          image.save(f'{batchFolder}/{filename}')
-                        # if frame_num != args.max_frames-1:
-                        #   display.clear_output()
+                            if j in args.intermediate_saves:
+                                if args.intermediates_in_subfolder is True:
+                                    image.save(f'{partialFolder}/{filename}')
+                                else:
+                                    image.save(f'{batchFolder}/{filename}')
+                        if cur_t == -1:
+                            if frame_num == 0:
+                                save_settings()
+                            if args.animation_mode != "None":
+                                image.save('prevFrame.png')
+                            if args.sharpen_preset != "Off" and animation_mode == "None":
+                                imgToSharpen = image
+                            if args.keep_unsharp is True:
+                                image.save(f'{unsharpenFolder}/{filename}')
+                            else:
+                                image.save(f'{batchFolder}/{filename}')
+                            # if frame_num != args.max_frames-1:
+                            #   display.clear_output()
 
-          with image_display:   
+            # with image_display:   
             if args.sharpen_preset != "Off" and animation_mode == "None":
-              print('Starting Diffusion Sharpening...')
-              do_superres(imgToSharpen, f'{batchFolder}/{filename}')
-              display.clear_output()
-          
-          plt.plot(np.array(loss_values), 'r')
+                print('Starting Diffusion Sharpening...')
+                do_superres(imgToSharpen, f'{batchFolder}/{filename}')
+                # display.clear_output()
+            
+            # plt.plot(np.array(loss_values), 'r')
 
 def save_settings():
   setting_list = {
@@ -1210,52 +1211,52 @@ def get_model(mode):
     return model
 
 
-def get_custom_cond(mode):
-    dest = "data/example_conditioning"
+# def get_custom_cond(mode):
+#     dest = "data/example_conditioning"
 
-    if mode == "superresolution":
-        uploaded_img = files.upload()
-        filename = next(iter(uploaded_img))
-        name, filetype = filename.split(".") # todo assumes just one dot in name !
-        os.rename(f"{filename}", f"{dest}/{mode}/custom_{name}.{filetype}")
+#     if mode == "superresolution":
+#         uploaded_img = files.upload()
+#         filename = next(iter(uploaded_img))
+#         name, filetype = filename.split(".") # todo assumes just one dot in name !
+#         os.rename(f"{filename}", f"{dest}/{mode}/custom_{name}.{filetype}")
 
-    elif mode == "text_conditional":
-        w = widgets.Text(value='A cake with cream!', disabled=True)
-        display.display(w)
+#     elif mode == "text_conditional":
+#         w = widgets.Text(value='A cake with cream!', disabled=True)
+#         display.display(w)
 
-        with open(f"{dest}/{mode}/custom_{w.value[:20]}.txt", 'w') as f:
-            f.write(w.value)
+#         with open(f"{dest}/{mode}/custom_{w.value[:20]}.txt", 'w') as f:
+#             f.write(w.value)
 
-    elif mode == "class_conditional":
-        w = widgets.IntSlider(min=0, max=1000)
-        display.display(w)
-        with open(f"{dest}/{mode}/custom.txt", 'w') as f:
-            f.write(w.value)
+#     elif mode == "class_conditional":
+#         w = widgets.IntSlider(min=0, max=1000)
+#         display.display(w)
+#         with open(f"{dest}/{mode}/custom.txt", 'w') as f:
+#             f.write(w.value)
 
-    else:
-        raise NotImplementedError(f"cond not implemented for mode{mode}")
-
-
-def get_cond_options(mode):
-    path = "data/example_conditioning"
-    path = os.path.join(path, mode)
-    onlyfiles = [f for f in sorted(os.listdir(path))]
-    return path, onlyfiles
+#     else:
+#         raise NotImplementedError(f"cond not implemented for mode{mode}")
 
 
-def select_cond_path(mode):
-    path = "data/example_conditioning"  # todo
-    path = os.path.join(path, mode)
-    onlyfiles = [f for f in sorted(os.listdir(path))]
+# def get_cond_options(mode):
+#     path = "data/example_conditioning"
+#     path = os.path.join(path, mode)
+#     onlyfiles = [f for f in sorted(os.listdir(path))]
+#     return path, onlyfiles
 
-    selected = widgets.RadioButtons(
-        options=onlyfiles,
-        description='Select conditioning:',
-        disabled=False
-    )
-    display.display(selected)
-    selected_path = os.path.join(path, selected.value)
-    return selected_path
+
+# def select_cond_path(mode):
+#     path = "data/example_conditioning"  # todo
+#     path = os.path.join(path, mode)
+#     onlyfiles = [f for f in sorted(os.listdir(path))]
+
+#     selected = widgets.RadioButtons(
+#         options=onlyfiles,
+#         description='Select conditioning:',
+#         disabled=False
+#     )
+#     display.display(selected)
+#     selected_path = os.path.join(path, selected.value)
+#     return selected_path
 
 
 def get_cond(mode, img):
@@ -1278,8 +1279,8 @@ def get_cond(mode, img):
     return example
 
 
-def visualize_cond_img(path):
-    display.display(ipyimg(filename=path))
+# def visualize_cond_img(path):
+#     display.display(ipyimg(filename=path))
 
 
 def sr_run(model, img, task, custom_steps, eta, resize_enabled=False, classifier_ckpt=None, global_step=None):
@@ -1510,7 +1511,7 @@ def do_superres(img, filepath):
     # print(f'Downsampling from [{width}, {height}] to Original Size [{width_og}, {height_og}]')
     a = a.resize((width_og, height_og), aliasing)
 
-  display.display(a)
+#   display.display(a)
   a.save(filepath)
   return
   print(f'Processing finished!')
@@ -1583,7 +1584,7 @@ if diffusion_model == '256x256_diffusion_uncond':
         else: 
             print("256 Model SHA doesn't match, redownloading...")
             response = requests.get(model_256_link)
-            with open(model_path, 'wb') as f:
+            with open(model_256_path, 'wb') as f:
                 f.write(response.content)
             # !wget --continue {model_256_link} -P {model_path}
             model_256_downloaded = True
@@ -1591,7 +1592,7 @@ if diffusion_model == '256x256_diffusion_uncond':
         print('256 Model already downloaded, check check_model_SHA if the file is corrupt')
     else:
         response = requests.get(model_256_link)
-        with open(model_path, 'wb') as f:
+        with open(model_256_path, 'wb') as f:
             f.write(response.content)
         # !wget --continue {model_256_link} -P {model_path}
     model_256_downloaded = True
@@ -1609,7 +1610,7 @@ elif diffusion_model == '512x512_diffusion_uncond_finetune_008100':
         else:  
             print("512 Model SHA doesn't match, redownloading...")
             response = requests.get(model_512_link)
-            with open(model_path, 'wb') as f:
+            with open(model_512_path, 'wb') as f:
                 f.write(response.content)
             # !wget --continue {model_512_link} -P {model_path}
         model_512_downloaded = True
@@ -1617,7 +1618,7 @@ elif diffusion_model == '512x512_diffusion_uncond_finetune_008100':
         print('512 Model already downloaded, check check_model_SHA if the file is corrupt')
     else:  
         response = requests.get(model_512_link)
-        with open(model_path, 'wb') as f:
+        with open(model_512_path, 'wb') as f:
             f.write(response.content)
         # !wget --continue {model_512_link} -P {model_path}
         model_512_downloaded = True
@@ -1637,7 +1638,7 @@ if use_secondary_model == True:
         else:  
             print("Secondary Model SHA doesn't match, redownloading...")
             response = requests.get(model_secondary_link)
-            with open(model_path, 'wb') as f:
+            with open(model_secondary_path, 'wb') as f:
                 f.write(response.content)
             #   !wget --continue {model_secondary_link} -P {model_path}
         model_secondary_downloaded = True
@@ -1645,7 +1646,7 @@ if use_secondary_model == True:
         print('Secondary Model already downloaded, check check_model_SHA if the file is corrupt')
     else:
         response = requests.get(model_secondary_link)
-        with open(model_path, 'wb') as f:
+        with open(model_secondary_path, 'wb') as f:
             f.write(response.content)
         # !wget --continue {model_secondary_link} -P {model_path}
         model_secondary_downloaded = True
@@ -1762,7 +1763,7 @@ lpips_model = lpips.LPIPS(net='vgg').to(device)
 ###############
 
 batch_name = 'TimeToDisco' #@param{type: 'string'}
-steps = 150 #@param [25,50,100,150,250,500,1000]{type: 'raw', allow-input: true}
+steps = 15 #@param [25,50,100,150,250,500,1000]{type: 'raw', allow-input: true}
 width_height = [512, 512]#@param{type: 'raw'}
 clip_guidance_scale = 5000 #@param{type: 'number'}
 tv_scale =  0#@param{type: 'number'}
@@ -2101,9 +2102,9 @@ if intermediate_saves and intermediates_in_subfolder is True:
 sharpen_preset = 'Off' #@param ['Off', 'Faster', 'Fast', 'Slow', 'Very Slow']
 keep_unsharp = True #@param{type: 'boolean'}
 
-if sharpen_preset != 'Off' and keep_unsharp is True:
-  unsharpenFolder = f'{batchFolder}/unsharpened'
-  createPath(unsharpenFolder)
+# if sharpen_preset != 'Off' and keep_unsharp is True:
+unsharpenFolder = f'{batchFolder}/unsharpened'
+createPath(unsharpenFolder)
 
 
   #@markdown ---
