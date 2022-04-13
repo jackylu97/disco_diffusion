@@ -3,23 +3,85 @@
 import os
 from os import path
 
-root_path = './output'
+import util
 
-#Simple create paths taken with modifications from Datamosh's Batch VQGAN+CLIP notebook
-def createPath(filepath):
-    if path.exists(filepath) == False:
-      os.makedirs(filepath)
-      print(f'Made {filepath}')
-    else:
-      print(f'filepath {filepath} exists.')
+ROOT_PATH = './output'
 
-initDirPath = f'{root_path}/init_images'
-createPath(initDirPath)
-outDirPath = f'{root_path}/images_out'
-createPath(outDirPath)
 
-model_path = f'{root_path}/models'
-createPath(model_path)
+batch_name = 'TimeToDisco' #@param{type: 'string'}
+steps = 15 #@param [25,50,100,150,250,500,1000]{type: 'raw', allow-input: true}
+width_height = [512, 512]#@param{type: 'raw'}
+clip_guidance_scale = 5000 #@param{type: 'number'}
+tv_scale =  0#@param{type: 'number'}
+range_scale =   150#@param{type: 'number'}
+sat_scale =   0#@param{type: 'number'}
+cutn_batches =   8#@param{type: 'number'}
+skip_augs = False#@param{type: 'boolean'}
+
+#@markdown ---
+
+#@markdown ####**Init Settings:**
+init_image = None #@param{type: 'string'}
+init_scale = 1000 #@param{type: 'integer'}
+skip_steps = 0 #@param{type: 'integer'}
+#@markdown *Make sure you set skip_steps to ~50% of your steps if you want to use an init image.*
+
+intermediate_saves = 25#@param{type: 'raw'}
+intermediates_in_subfolder = True #@param{type: 'boolean'}
+#@markdown Intermediate steps will save a copy at your specified intervals. You can either format it as a single integer or a list of specific steps 
+
+#@markdown A value of `2` will save a copy at 33% and 66%. 0 will save none.
+
+#@markdown A value of `[5, 9, 34, 45]` will save at steps 5, 9, 34, and 45. (Make sure to include the brackets)
+
+
+#@markdown ####**SuperRes Sharpening:**
+#@markdown *Sharpen each image using latent-diffusion. Does not run in animation mode. `keep_unsharp` will save both versions.*
+sharpen_preset = 'Off' #@param ['Off', 'Faster', 'Fast', 'Slow', 'Very Slow']
+keep_unsharp = True #@param{type: 'boolean'}
+
+#@markdown ####**Advanced Settings:**
+#@markdown *There are a few extra advanced settings available if you double click this cell.*
+
+#@markdown *Perlin init will replace your init, so uncheck if using one.*
+
+perlin_init = False  #@param{type: 'boolean'}
+perlin_mode = 'mixed' #@param ['mixed', 'color', 'gray']
+set_seed = 'random_seed' #@param{type: 'string'}
+eta = 0.8#@param{type: 'number'}
+clamp_grad = True #@param{type: 'boolean'}
+clamp_max = 0.05 #@param{type: 'number'}
+
+
+### EXTRA ADVANCED SETTINGS:
+randomize_class = True
+clip_denoised = False
+fuzzy_prompt = False
+rand_mag = 0.05
+
+
+ #@markdown ---
+
+#@markdown ####**Cutn Scheduling:**
+#@markdown Format: `[40]*400+[20]*600` = 40 cuts for the first 400 /1000 steps, then 20 for the last 600/1000
+
+#@markdown cut_overview and cut_innercut are cumulative for total cutn on any given step. Overview cuts see the entire image and are good for early structure, innercuts are your standard cutn.
+
+cut_overview = "[12]*400+[4]*600" #@param {type: 'string'}       
+cut_innercut ="[4]*400+[12]*600"#@param {type: 'string'}  
+cut_ic_pow = 1#@param {type: 'number'}  
+cut_icgray_p = "[0.2]*400+[0]*600"#@param {type: 'string'}  
+
+fpm = util.fpm(ROOT_PATH, batch_name)
+
+# # # Simple create paths taken with modifications from Datamosh's Batch VQGAN+CLIP notebook
+# def createPath(filepath):
+#     if path.exists(filepath) == False:
+#       os.makedirs(filepath)
+#       print(f'Made {filepath}')
+#     else:
+#       print(f'filepath {filepath} exists.')
+
 
 ###############
 
@@ -104,6 +166,9 @@ warnings.filterwarnings("ignore", category=UserWarning)
 
 
 import torch
+
+
+# Set Device
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 print('Using device:', device)
 
@@ -449,7 +514,7 @@ def do_run():
         if frame_num > 0:
           seed = seed + 1          
           if resume_run and frame_num == start_frame:
-            img_0 = cv2.imread(batchFolder+f"/{batch_name}({batchNum})_{start_frame-1:04}.png")
+            img_0 = cv2.imread(fpm.batchFolder+f"/{batch_name}({batchNum})_{start_frame-1:04}.png")
           else:
             img_0 = cv2.imread('prevFrame.png')
           center = (1*img_0.shape[1]//2, 1*img_0.shape[0]//2)
@@ -718,15 +783,15 @@ def do_run():
                         if args.steps_per_checkpoint is not None:
                             if j % args.steps_per_checkpoint == 0 and j > 0:
                                 if args.intermediates_in_subfolder is True:
-                                    image.save(f'{partialFolder}/{filename}')
+                                    image.save(f'{fpm.partialFolder}/{filename}')
                                 else:
-                                    image.save(f'{batchFolder}/{filename}')
+                                    image.save(f'{fpm.batchFolder}/{filename}')
                         else:
                             if j in args.intermediate_saves:
                                 if args.intermediates_in_subfolder is True:
-                                    image.save(f'{partialFolder}/{filename}')
+                                    image.save(f'{fpm.partialFolder}/{filename}')
                                 else:
-                                    image.save(f'{batchFolder}/{filename}')
+                                    image.save(f'{fpm.batchFolder}/{filename}')
                         if cur_t == -1:
                             if frame_num == 0:
                                 save_settings()
@@ -735,16 +800,16 @@ def do_run():
                             if args.sharpen_preset != "Off" and animation_mode == "None":
                                 imgToSharpen = image
                             if args.keep_unsharp is True:
-                                image.save(f'{unsharpenFolder}/{filename}')
+                                image.save(f'{fpm.unsharpenFolder}/{filename}')
                             else:
-                                image.save(f'{batchFolder}/{filename}')
+                                image.save(f'{fpm.batchFolder}/{filename}')
                             # if frame_num != args.max_frames-1:
                             #   display.clear_output()
 
             # with image_display:   
             if args.sharpen_preset != "Off" and animation_mode == "None":
                 print('Starting Diffusion Sharpening...')
-                do_superres(imgToSharpen, f'{batchFolder}/{filename}')
+                do_superres(imgToSharpen, f'{fpm.batchFolder}/{filename}')
                 # display.clear_output()
             
             # plt.plot(np.array(loss_values), 'r')
@@ -807,7 +872,7 @@ def save_settings():
     'extract_nth_frame':extract_nth_frame,
   }
   # print('Settings:', setting_list)
-  with open(f"{batchFolder}/{batch_name}({batchNum})_settings.txt", "w+") as f:   #save settings
+  with open(f"{fpm.batchFolder}/{batch_name}({batchNum})_settings.txt", "w+") as f:   #save settings
     json.dump(setting_list, f, ensure_ascii=False, indent=4)
 
 ###############
@@ -1178,8 +1243,8 @@ def download_models(mode):
         url_conf = 'https://heibox.uni-heidelberg.de/f/31a76b13ea27482981b4/?dl=1'
         url_ckpt = 'https://heibox.uni-heidelberg.de/f/578df07c8fc04ffbadf3/?dl=1'
 
-        path_conf = f'{model_path}/superres/project.yaml'
-        path_ckpt = f'{model_path}/superres/last.ckpt'
+        path_conf = f'{fpm.model_path}/superres/project.yaml'
+        path_ckpt = f'{fpm.model_path}/superres/last.ckpt'
 
         download_url(url_conf, path_conf)
         download_url(url_ckpt, path_ckpt)
@@ -1566,9 +1631,9 @@ model_256_link = 'https://openaipublic.blob.core.windows.net/diffusion/jul-2021/
 model_512_link = 'https://v-diffusion.s3.us-west-2.amazonaws.com/512x512_diffusion_uncond_finetune_008100.pt'
 model_secondary_link = 'https://v-diffusion.s3.us-west-2.amazonaws.com/secondary_model_imagenet_2.pth'
 
-model_256_path = f'{model_path}/256x256_diffusion_uncond.pt'
-model_512_path = f'{model_path}/512x512_diffusion_uncond_finetune_008100.pt'
-model_secondary_path = f'{model_path}/secondary_model_imagenet_2.pth'
+model_256_path = f'{fpm.model_path}/256x256_diffusion_uncond.pt'
+model_512_path = f'{fpm.model_path}/512x512_diffusion_uncond_finetune_008100.pt'
+model_secondary_path = f'{fpm.model_path}/secondary_model_imagenet_2.pth'
 
 # Download the diffusion model
 if diffusion_model == '256x256_diffusion_uncond':
@@ -1696,7 +1761,7 @@ model_default = model_config['image_size']
 
 if secondary_model_ver == 2:
     secondary_model = SecondaryDiffusionImageNet2()
-    secondary_model.load_state_dict(torch.load(f'{model_path}/secondary_model_imagenet_2.pth', map_location='cpu'))
+    secondary_model.load_state_dict(torch.load(f'{fpm.model_path}/secondary_model_imagenet_2.pth', map_location='cpu'))
 secondary_model.eval().requires_grad_(False).to(device)
 
 clip_models = []
@@ -1762,24 +1827,6 @@ lpips_model = lpips.LPIPS(net='vgg').to(device)
 
 ###############
 
-batch_name = 'TimeToDisco' #@param{type: 'string'}
-steps = 15 #@param [25,50,100,150,250,500,1000]{type: 'raw', allow-input: true}
-width_height = [512, 512]#@param{type: 'raw'}
-clip_guidance_scale = 5000 #@param{type: 'number'}
-tv_scale =  0#@param{type: 'number'}
-range_scale =   150#@param{type: 'number'}
-sat_scale =   0#@param{type: 'number'}
-cutn_batches =   8#@param{type: 'number'}
-skip_augs = False#@param{type: 'boolean'}
-
-#@markdown ---
-
-#@markdown ####**Init Settings:**
-init_image = None #@param{type: 'string'}
-init_scale = 1000 #@param{type: 'integer'}
-skip_steps = 0 #@param{type: 'integer'}
-#@markdown *Make sure you set skip_steps to ~50% of your steps if you want to use an init image.*
-
 #Get corrected sizes
 side_x = (width_height[0]//64)*64;
 side_y = (width_height[1]//64)*64;
@@ -1793,10 +1840,6 @@ model_config.update({
     'timestep_respacing': timestep_respacing,
     'diffusion_steps': diffusion_steps,
 })
-
-#Make folder for batch
-batchFolder = f'{outDirPath}/{batch_name}'
-createPath(batchFolder)
 
 ###############
 
@@ -2072,15 +2115,6 @@ else:
 ###############
 
 
-intermediate_saves = 25#@param{type: 'raw'}
-intermediates_in_subfolder = True #@param{type: 'boolean'}
-#@markdown Intermediate steps will save a copy at your specified intervals. You can either format it as a single integer or a list of specific steps 
-
-#@markdown A value of `2` will save a copy at 33% and 66%. 0 will save none.
-
-#@markdown A value of `[5, 9, 34, 45]` will save at steps 5, 9, 34, and 45. (Make sure to include the brackets)
-
-
 if type(intermediate_saves) is not list:
   if intermediate_saves:
     steps_per_checkpoint = math.floor((steps - skip_steps - 1) // (intermediate_saves+1))
@@ -2091,55 +2125,6 @@ if type(intermediate_saves) is not list:
 else:
   steps_per_checkpoint = None
 
-if intermediate_saves and intermediates_in_subfolder is True:
-  partialFolder = f'{batchFolder}/partials'
-  createPath(partialFolder)
-
-  #@markdown ---
-
-#@markdown ####**SuperRes Sharpening:**
-#@markdown *Sharpen each image using latent-diffusion. Does not run in animation mode. `keep_unsharp` will save both versions.*
-sharpen_preset = 'Off' #@param ['Off', 'Faster', 'Fast', 'Slow', 'Very Slow']
-keep_unsharp = True #@param{type: 'boolean'}
-
-# if sharpen_preset != 'Off' and keep_unsharp is True:
-unsharpenFolder = f'{batchFolder}/unsharpened'
-createPath(unsharpenFolder)
-
-
-  #@markdown ---
-
-#@markdown ####**Advanced Settings:**
-#@markdown *There are a few extra advanced settings available if you double click this cell.*
-
-#@markdown *Perlin init will replace your init, so uncheck if using one.*
-
-perlin_init = False  #@param{type: 'boolean'}
-perlin_mode = 'mixed' #@param ['mixed', 'color', 'gray']
-set_seed = 'random_seed' #@param{type: 'string'}
-eta = 0.8#@param{type: 'number'}
-clamp_grad = True #@param{type: 'boolean'}
-clamp_max = 0.05 #@param{type: 'number'}
-
-
-### EXTRA ADVANCED SETTINGS:
-randomize_class = True
-clip_denoised = False
-fuzzy_prompt = False
-rand_mag = 0.05
-
-
- #@markdown ---
-
-#@markdown ####**Cutn Scheduling:**
-#@markdown Format: `[40]*400+[20]*600` = 40 cuts for the first 400 /1000 steps, then 20 for the last 600/1000
-
-#@markdown cut_overview and cut_innercut are cumulative for total cutn on any given step. Overview cuts see the entire image and are good for early structure, innercuts are your standard cutn.
-
-cut_overview = "[12]*400+[4]*600" #@param {type: 'string'}       
-cut_innercut ="[4]*400+[12]*600"#@param {type: 'string'}  
-cut_ic_pow = 1#@param {type: 'number'}  
-cut_icgray_p = "[0.2]*400+[0]*600"#@param {type: 'string'}  
 
 ###############
 
@@ -2200,12 +2185,6 @@ n_batches =  1 #@param{type: 'number'}
 
 batch_size = 1 
 
-def move_files(start_num, end_num, old_folder, new_folder):
-    for i in range(start_num, end_num):
-        old_file = old_folder + f'/{batch_name}({batchNum})_{i:04}.png'
-        new_file = new_folder + f'/{batch_name}({batchNum})_{i:04}.png'
-        os.rename(old_file, new_file)
-
 #@markdown ---
 
 
@@ -2214,8 +2193,8 @@ run_to_resume = 'latest' #@param{type: 'string'}
 resume_from_frame = 'latest' #@param{type: 'string'}
 retain_overwritten_frames = False #@param{type: 'boolean'}
 if retain_overwritten_frames is True:
-  retainFolder = f'{batchFolder}/retained'
-  createPath(retainFolder)
+  retainFolder = f'{fpm.batchFolder}/retained'
+  fpm.createPath(retainFolder)
 
 
 skip_step_ratio = int(frames_skip_steps.rstrip("%")) / 100
@@ -2230,22 +2209,22 @@ if resume_run:
     try:
       batchNum
     except:
-      batchNum = len(glob(f"{batchFolder}/{batch_name}(*)_settings.txt"))-1
+      batchNum = len(glob(f"{fpm.batchFolder}/{batch_name}(*)_settings.txt"))-1
   else:
     batchNum = int(run_to_resume)
   if resume_from_frame == 'latest':
-    start_frame = len(glob(batchFolder+f"/{batch_name}({batchNum})_*.png"))
+    start_frame = len(glob(fpm.batchFolder+f"/{batch_name}({batchNum})_*.png"))
   else:
     start_frame = int(resume_from_frame)+1
     if retain_overwritten_frames is True:
-      existing_frames = len(glob(batchFolder+f"/{batch_name}({batchNum})_*.png"))
+      existing_frames = len(glob(fpm.batchFolder+f"/{batch_name}({batchNum})_*.png"))
       frames_to_save = existing_frames - start_frame
       print(f'Moving {frames_to_save} frames to the Retained folder')
-      move_files(start_frame, existing_frames, batchFolder, retainFolder)
+      fpm.move_files(batchNum, start_frame, existing_frames, fpm.batchFolder, retainFolder)
 else:
   start_frame = 0
-  batchNum = len(glob(batchFolder+"/*.txt"))
-  while path.isfile(f"{batchFolder}/{batch_name}({batchNum})_settings.txt") is True or path.isfile(f"{batchFolder}/{batch_name}-{batchNum}_settings.txt") is True:
+  batchNum = len(glob(fpm.batchFolder+"/*.txt"))
+  while path.isfile(f"{fpm.batchFolder}/{batch_name}({batchNum})_settings.txt") is True or path.isfile(f"{fpm.batchFolder}/{batch_name}-{batchNum}_settings.txt") is True:
     batchNum += 1
 
 print(f'Starting Run: {batch_name}({batchNum}) at frame {start_frame}')
@@ -2253,7 +2232,7 @@ print(f'Starting Run: {batch_name}({batchNum}) at frame {start_frame}')
 if set_seed == 'random_seed':
     random.seed()
     seed = random.randint(0, 2**32)
-    # print(f'Using seed: {seed}')
+    print(f'Using seed: {seed}')
 else:
     seed = int(set_seed)
 
@@ -2327,7 +2306,7 @@ args = SimpleNamespace(**args)
 
 print('Prepping model...')
 model, diffusion = create_model_and_diffusion(**model_config)
-model.load_state_dict(torch.load(f'{model_path}/{diffusion_model}.pt', map_location='cpu'))
+model.load_state_dict(torch.load(f'{fpm.model_path}/{diffusion_model}.pt', map_location='cpu'))
 model.requires_grad_(False).eval().to(device)
 for name, param in model.named_parameters():
     if 'qkv' in name or 'norm' in name or 'proj' in name:
