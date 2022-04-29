@@ -49,7 +49,7 @@ class FilePathManager:
         os.rename(old_file, new_file)
 
   # Simple create paths taken with modifications from Datamosh's Batch VQGAN+CLIP notebook
-  def createPath(filepath):
+  def createPath(self, filepath):
       if path.exists(filepath) == False:
         os.makedirs(filepath)
         print(f'Made {filepath}')

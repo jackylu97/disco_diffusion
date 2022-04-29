@@ -72,7 +72,7 @@ cut_innercut = "[4]*400+[12]*600"  # @param {type: 'string'}
 cut_ic_pow = 1  # @param {type: 'number'}
 cut_icgray_p = "[0.2]*400+[0]*600"  # @param {type: 'string'}
 
-fpm = util.fpm(ROOT_PATH, batch_name)
+fpm = util.FilePathManager(ROOT_PATH, batch_name)
 
 # # # Simple create paths taken with modifications from Datamosh's Batch VQGAN+CLIP notebook
 # def createPath(filepath):
@@ -1509,8 +1509,8 @@ def download_models(mode):
         url_conf = "https://heibox.uni-heidelberg.de/f/31a76b13ea27482981b4/?dl=1"
         url_ckpt = "https://heibox.uni-heidelberg.de/f/578df07c8fc04ffbadf3/?dl=1"
 
-        path_conf = f"{fpm.model_path}/superres/project.yaml"
-        path_ckpt = f"{fpm.model_path}/superres/last.ckpt"
+        path_conf = f"{fpm.modelPath}/superres/project.yaml"
+        path_ckpt = f"{fpm.modelPath}/superres/last.ckpt"
 
         download_url(url_conf, path_conf)
         download_url(url_ckpt, path_ckpt)
@@ -1974,9 +1974,9 @@ model_secondary_link = (
     "https://v-diffusion.s3.us-west-2.amazonaws.com/secondary_model_imagenet_2.pth"
 )
 
-model_256_path = f"{fpm.model_path}/256x256_diffusion_uncond.pt"
-model_512_path = f"{fpm.model_path}/512x512_diffusion_uncond_finetune_008100.pt"
-model_secondary_path = f"{fpm.model_path}/secondary_model_imagenet_2.pth"
+model_256_path = f"{fpm.modelPath}/256x256_diffusion_uncond.pt"
+model_512_path = f"{fpm.modelPath}/512x512_diffusion_uncond_finetune_008100.pt"
+model_secondary_path = f"{fpm.modelPath}/secondary_model_imagenet_2.pth"
 
 # Download the diffusion model
 if diffusion_model == "256x256_diffusion_uncond":
@@ -2127,7 +2127,7 @@ if secondary_model_ver == 2:
     secondary_model = SecondaryDiffusionImageNet2()
     secondary_model.load_state_dict(
         torch.load(
-            f"{fpm.model_path}/secondary_model_imagenet_2.pth", map_location="cpu"
+            f"{fpm.modelPath}/secondary_model_imagenet_2.pth", map_location="cpu"
         )
     )
 secondary_model.eval().requires_grad_(False).to(device)
@@ -2657,7 +2657,7 @@ args = SimpleNamespace(**args)
 print("Prepping model...")
 model, diffusion = create_model_and_diffusion(**model_config)
 model.load_state_dict(
-    torch.load(f"{fpm.model_path}/{diffusion_model}.pt", map_location="cpu")
+    torch.load(f"{fpm.modelPath}/{diffusion_model}.pt", map_location="cpu")
 )
 model.requires_grad_(False).eval().to(device)
 for name, param in model.named_parameters():
